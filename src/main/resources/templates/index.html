@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pexels Video Search</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="container">
+    <h1>B-Roll Search PoC</h1>
+
+    <div class="search-box">
+        <input id="queryInput" type="text" placeholder="Enter keyword, e.g. office">
+        <select id="orientationSelect">
+            <option value="">Any orientation</option>
+            <option value="landscape">Landscape</option>
+            <option value="portrait">Portrait</option>
+            <option value="square">Square</option>
+        </select>
+        <button id="searchButton">Search</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="results" class="results"></div>
+</div>
+
+<script>
+    const queryInput = document.getElementById("queryInput");
+    const orientationSelect = document.getElementById("orientationSelect");
+    const searchButton = document.getElementById("searchButton");
+    const statusDiv = document.getElementById("status");
+    const resultsDiv = document.getElementById("results");
+
+    async function searchVideos() {
+        const query = queryInput.value.trim();
+        const orientation = orientationSelect.value;
+
+        if (!query) {
+            statusDiv.textContent = "Please enter a search query.";
+            resultsDiv.innerHTML = "";
+            return;
+        }
+
+        statusDiv.textContent = "Loading...";
+        resultsDiv.innerHTML = "";
+
+        const params = new URLSearchParams({
+            query: query,
+            page: "1",
+            perPage: "12"
+        });
+
+        if (orientation) {
+            params.append("orientation", orientation);
+        }
+
+        try {
+            const response = await fetch(`/api/videos/search?${params.toString()}`);
+            const data = await response.json();
+
+            if (!response.ok) {
+                statusDiv.textContent = data.message || "Request failed.";
+                return;
+            }
+
+            const items = data.items || [];
+            statusDiv.textContent = `Found ${items.length} videos`;
+
+            if (items.length === 0) {
+                resultsDiv.innerHTML = "<p>No videos found.</p>";
+                return;
+            }
+            resultsDiv.innerHTML = items.map(item => `
+                <div class="card">
+                    <img class="preview" src="${item.previewImage}" alt="Preview">
+                    <div class="card-body">
+                        <h3>Video #${item.id}</h3>
+                        <p><strong>Author:</strong> ${item.authorName ?? "Unknown"}</p>
+                        <p><strong>Duration:</strong> ${item.duration} sec</p>
+                        <p><strong>Resolution:</strong> ${
+                            item.width && item.height ? `${item.width}x${item.height}` : "Unknown"
+                         }</p>
+
+                        <div class="actions">
+                            <a href="${item.pexelsUrl}" target="_blank" rel="noopener noreferrer">Open</a>
+                            <a href="${item.videoUrl}" target="_blank" rel="noopener noreferrer" download>Download</a>
+                        </div>
+                    </div>
+                </div>
+            `).join("");
+        } catch (error) {
+            statusDiv.textContent = "Unexpected error while loading videos.";
+            console.error(error);
+        }
+    }
+
+    searchButton.addEventListener("click", searchVideos);
+
+    queryInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            searchVideos();
+        }
+    });
+</script>
+</body>
+</html>
